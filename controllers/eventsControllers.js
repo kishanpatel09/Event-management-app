@@ -1,6 +1,7 @@
 const Events = require("../models/eventSchema");
 const nodemailer = require("nodemailer");
 const User = require("../models/User");
+const schedule = require("node-schedule");
 //showing all Events
 exports.getEvents = async (req, res, next) => {
   try {
@@ -32,10 +33,7 @@ exports.createEvents = async (req, res, next) => {
       data: events,
       invitee: email,
     });
-
     //****************************************SENDING EMAIL TO ALL INVITEES*********************************
-
-    console.log(email);
 
     var transporter = nodemailer.createTransport({
       host: "smtp.mailtrap.io",
@@ -45,7 +43,6 @@ exports.createEvents = async (req, res, next) => {
         pass: "803473c2558670",
       },
     });
-
     function createInvite(email) {
       return {
         from: "nodej6621@gmail.com",
@@ -54,7 +51,6 @@ exports.createEvents = async (req, res, next) => {
         html: ` <h3>You are invited to ${req.body.title} at address ${req.body.address} at time ${req.body.time}    </h3>`,
       };
     }
-
     transporter.sendMail(createInvite(email), (err, info) => {
       if (err) {
         throw err;
@@ -63,7 +59,27 @@ exports.createEvents = async (req, res, next) => {
         done(info);
       }
     });
-    //-------------------------------------------------------------------------
+
+    //--------------------------------NOTIFYING BEFORE 5 MIN -----------------------------------------
+
+    schedule.scheduleJob(events.time - 333000, () => {
+      function createInvite(email) {
+        return {
+          from: "nodej6621@gmail.com",
+          to: email,
+          subject: `You are invited to an ${req.body.title}`,
+          html: ` <h3>Notification to ${req.body.title} at address ${req.body.address} at time ${req.body.time}    </h3>`,
+        };
+      }
+      transporter.sendMail(createInvite(email), (err, info) => {
+        if (err) {
+          throw err;
+        }
+        if (done) {
+          done(info);
+        }
+      });
+    });
   } catch (error) {
     res.json({ succcess: false, error: error }).status(400);
   }
