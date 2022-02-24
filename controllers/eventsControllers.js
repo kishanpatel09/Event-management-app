@@ -1,7 +1,8 @@
 const Events = require("../models/eventSchema");
 const nodemailer = require("nodemailer");
 const User = require("../models/User");
-const schedule = require("node-schedule");
+var CronJob = require("cron").CronJob;
+
 //showing all Events
 exports.getEvents = async (req, res, next) => {
   try {
@@ -31,8 +32,8 @@ exports.createEvents = async (req, res, next) => {
     res.json({
       succcess: true,
       data: events,
-      invitee: email,
     });
+
     //****************************************SENDING EMAIL TO ALL INVITEES*********************************
 
     var transporter = nodemailer.createTransport({
@@ -43,32 +44,13 @@ exports.createEvents = async (req, res, next) => {
         pass: "803473c2558670",
       },
     });
-    function createInvite(email) {
-      return {
-        from: "nodej6621@gmail.com",
-        to: email,
-        subject: `You are invited to an ${req.body.title}`,
-        html: ` <h3>You are invited to ${req.body.title} at address ${req.body.address} at time ${req.body.time}    </h3>`,
-      };
-    }
-    transporter.sendMail(createInvite(email), (err, info) => {
-      if (err) {
-        throw err;
-      }
-      if (done) {
-        done(info);
-      }
-    });
-
-    //--------------------------------NOTIFYING BEFORE 5 MIN -----------------------------------------
-
-    schedule.scheduleJob(events.time - 333000, () => {
+    try {
       function createInvite(email) {
         return {
           from: "nodej6621@gmail.com",
           to: email,
           subject: `You are invited to an ${req.body.title}`,
-          html: ` <h3>Notification to ${req.body.title} at address ${req.body.address} at time ${req.body.time}    </h3>`,
+          html: ` <h3>You are invited to ${req.body.title} at address ${req.body.address} at time ${req.body.time} </h3>`,
         };
       }
       transporter.sendMail(createInvite(email), (err, info) => {
@@ -79,11 +61,51 @@ exports.createEvents = async (req, res, next) => {
           done(info);
         }
       });
+    } catch (error) {
+      console.log(`Error in sending error ${error}`);
+    }
+
+    //--------------------------------NOTIFYING BEFORE 5 MIN -----------------------------------------
+
+    var job = new CronJob("* * * * * *", function () {
+      if (
+        332000 < events.time - Date.now() &&
+        events.time - Date.now() < 333000
+      ) {
+        var transporter = nodemailer.createTransport({
+          host: "smtp.mailtrap.io",
+          port: 2525,
+          auth: {
+            user: "d047b0ef454090",
+            pass: "803473c2558670",
+          },
+        });
+        function createInvite(email) {
+          return {
+            from: "nodej6621@gmail.com",
+            to: email,
+            subject: `You are notified to an ${req.body.title} `,
+            html: ` <h3>Notification to an ${req.body.title} event at address ${req.body.address} at time ${req.body.time}</h3>`,
+          };
+        }
+        transporter.sendMail(createInvite(email), (err, info) => {
+          if (err) {
+            throw err;
+          }
+          if (done) {
+            done(info);
+          }
+        });
+      }
     });
+
+    job.start();
   } catch (error) {
     res.json({ succcess: false, error: error }).status(400);
   }
 };
+
+//=*=*=*=*=*==*=*=*=*=*=*=*=*=*==*=*=*=*=*=*=**=*==*=*=*=*=*=*=*=*=*=**=*=*=*=*=*=*=*=*=*=*=*=*==*=*=*=*=**=*=*=*=*
 
 //updating events
 exports.updateEvents = async (req, res, next) => {
